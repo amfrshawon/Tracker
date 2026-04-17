@@ -111,7 +111,7 @@ export default async function DashboardPage() {
       <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Tracer</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">RabbyTrack</p>
             <p className="mt-1 text-sm text-slate-600">Enterprise project tracking starter</p>
           </div>
           <form action={logoutAction}>

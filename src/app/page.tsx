@@ -13,7 +13,7 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col items-start justify-center gap-4 px-6 py-16">
       <p className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-        Tracer
+        RabbyTrack
       </p>
       <h1 className="text-3xl font-bold text-slate-900">Asana-style workspace foundation is ready.</h1>
       <p className="max-w-2xl text-slate-600">

@@ -3,10 +3,10 @@
 ## Create Repository and Push
 
 ```bash
-cd /Users/fazlayrabby/Downloads/Tracer
+cd <your-local-repo-path>
 git init
 git add .
-git commit -m "chore: bootstrap tracer foundation"
+git commit -m "chore: bootstrap rabbytrack foundation"
 git branch -M main
 git remote add origin <your-github-repo-url>
 git push -u origin main

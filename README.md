@@ -1,4 +1,4 @@
-# Tracer
+# RabbyTrack
 
 Open-source, enterprise-grade project tracking platform (Asana-style) built with Next.js, Prisma, PostgreSQL, and Auth.js.
 
@@ -23,7 +23,7 @@ This repository contains a GitHub-ready foundation:
 
 ```bash
 git clone <your-github-repo-url>
-cd Tracer
+cd RabbyTrack
 cp .env.example .env
 ```
 
@@ -72,7 +72,7 @@ Health check: `http://localhost:3000/api/health`
 
 The seed creates this default admin user unless overridden via env vars:
 
-- Email: `admin@tracer.local`
+- Email: `admin@rabbytrack.local`
 - Password: `ChangeMe123!`
 
 Override with:

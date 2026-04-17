@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tracer",
+  title: "RabbyTrack",
   description: "Open-source project tracking platform",
 };
 

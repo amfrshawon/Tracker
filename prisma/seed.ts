@@ -13,7 +13,7 @@ function toSlug(value: string): string {
 }
 
 async function main() {
-  const email = process.env.DEMO_ADMIN_EMAIL ?? "admin@tracer.local";
+  const email = process.env.DEMO_ADMIN_EMAIL ?? "admin@rabbytrack.local";
   const password = process.env.DEMO_ADMIN_PASSWORD ?? "ChangeMe123!";
   const workspaceName = process.env.DEMO_WORKSPACE_NAME ?? "Team Workspace";
 
@@ -59,14 +59,14 @@ async function main() {
     where: {
       workspaceId_key: {
         workspaceId: workspace.id,
-        key: "TRACER",
+        key: "RABBYTRK",
       },
     },
     create: {
       workspaceId: workspace.id,
       ownerId: user.id,
-      name: "Tracer Onboarding Project",
-      key: "TRACER",
+      name: "RabbyTrack Onboarding Project",
+      key: "RABBYTRK",
       description: "Seeded project to validate the setup.",
       members: {
         create: {

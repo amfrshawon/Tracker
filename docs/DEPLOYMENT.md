@@ -1,6 +1,6 @@
 # Deployment Checklist
 
-This guide makes the app visible on the web by deploying `Tracer` to Vercel with a managed PostgreSQL database.
+This guide makes the app visible on the web by deploying `RabbyTrack` to Vercel with a managed PostgreSQL database.
 
 ## 1. Prerequisites
 
@@ -19,7 +19,7 @@ This guide makes the app visible on the web by deploying `Tracer` to Vercel with
 ## 3. Configure Vercel Project
 
 1. Open [https://vercel.com/new](https://vercel.com/new)
-2. Import `amfrshawon/Tracker`
+2. Import your `RabbyTrack` GitHub repository
 3. Framework should auto-detect as `Next.js`
 4. Before deploy, add these environment variables:
 
@@ -57,7 +57,7 @@ At this point, UI should load, but database tables may not exist yet.
 Run these commands from your local machine in this repo:
 
 ```bash
-cd /Users/fazlayrabby/Downloads/Tracer
+cd <your-local-repo-path>
 
 # Set production DB URLs for this terminal session
 export DATABASE_URL="postgresql://..."
@@ -87,6 +87,7 @@ npx tsx prisma/seed.ts
 2. Rotate temporary tokens and secrets after setup.
 3. Use branch protection on `main` with required CI checks.
 4. Add custom domain in Vercel if needed.
+   - Planned domain: `track.fazlayrabby.com`
 
 ## 8. Common Issues
 

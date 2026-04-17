@@ -168,12 +168,22 @@ export function DashboardShell({
                 <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-sm font-semibold text-slate-700">Recent Projects</p>
-                    <Link
-                      className="text-xs font-semibold text-sky-700 hover:text-sky-800"
-                      href={`/api/projects?workspaceId=${workspace.id}`}
-                    >
-                      Open API
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-800"
+                        href={`/api/projects?workspaceId=${workspace.id}`}
+                      >
+                        API
+                      </Link>
+                      {workspace.projects[0] ? (
+                        <Link
+                          className="text-xs font-semibold text-sky-700 hover:text-sky-800"
+                          href={`/projects/${workspace.projects[0].id}`}
+                        >
+                          Open Project
+                        </Link>
+                      ) : null}
+                    </div>
                   </div>
 
                   {workspace.projects.length === 0 ? (
@@ -192,12 +202,12 @@ export function DashboardShell({
                         return (
                           <li key={project.id} className="rounded-lg border border-slate-200 p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="font-medium text-slate-900">
+                              <Link href={`/projects/${project.id}`} className="font-medium text-slate-900 hover:text-sky-800">
                                 {project.name}
                                 {project.key ? (
                                   <span className="ml-2 text-xs font-semibold text-slate-500">[{project.key}]</span>
                                 ) : null}
-                              </p>
+                              </Link>
                               <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusClasses(project.status)}`}>
                                 {project.status.replace("_", " ")}
                               </span>
