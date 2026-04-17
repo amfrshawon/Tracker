@@ -13,17 +13,30 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
 import {
+  addHours,
   addDays,
   addMonths,
+  addQuarters,
+  addWeeks,
+  addYears,
+  differenceInCalendarMonths,
+  differenceInCalendarQuarters,
+  differenceInCalendarWeeks,
+  differenceInCalendarYears,
   differenceInCalendarDays,
+  differenceInHours,
   endOfMonth,
   endOfWeek,
   format,
   isSameDay,
   isSameMonth,
   parseISO,
+  startOfDay,
+  startOfHour,
   startOfMonth,
+  startOfQuarter,
   startOfWeek,
+  startOfYear,
 } from "date-fns";
 import Link from "next/link";
 import {
@@ -74,6 +87,28 @@ type TaskPatchPayload = {
   position?: number;
 };
 
+type TimelineScale =
+  | "HOURS"
+  | "DAYS"
+  | "WEEKS"
+  | "MONTHS"
+  | "QUARTERS"
+  | "HALF_YEAR"
+  | "YEARS";
+
+type TimelineTaskItem = {
+  task: ProjectTaskRecord;
+  start: Date;
+  end: Date;
+  dependency: ProjectDependencyRecord | null;
+};
+
+type TimelineRow = {
+  id: string;
+  name: string;
+  tasks: TimelineTaskItem[];
+};
+
 const priorityTone: Record<ProjectTaskRecord["priority"], string> = {
   NONE: "bg-slate-100 text-slate-600",
   LOW: "bg-emerald-100 text-emerald-700",
@@ -101,6 +136,99 @@ const projectTabs: Array<{ value: ProjectViewTab; label: string }> = [
   { value: "MESSAGES", label: "Messages" },
   { value: "FILES", label: "Files" },
 ];
+
+const timelineScaleOptions: Array<{ value: TimelineScale; label: string }> = [
+  { value: "HOURS", label: "Hours" },
+  { value: "DAYS", label: "Days" },
+  { value: "WEEKS", label: "Weeks" },
+  { value: "MONTHS", label: "Months" },
+  { value: "QUARTERS", label: "Quarters" },
+  { value: "HALF_YEAR", label: "Half-year" },
+  { value: "YEARS", label: "Years" },
+];
+
+function startOfHalfYear(date: Date): Date {
+  const anchored = startOfMonth(date);
+  const month = anchored.getMonth();
+  anchored.setMonth(month < 6 ? 0 : 6, 1);
+  anchored.setHours(0, 0, 0, 0);
+  return anchored;
+}
+
+function alignTimelineDate(date: Date, scale: TimelineScale): Date {
+  if (scale === "HOURS") return startOfHour(date);
+  if (scale === "DAYS") return startOfDay(date);
+  if (scale === "WEEKS") return startOfWeek(date, { weekStartsOn: 0 });
+  if (scale === "MONTHS") return startOfMonth(date);
+  if (scale === "QUARTERS") return startOfQuarter(date);
+  if (scale === "HALF_YEAR") return startOfHalfYear(date);
+  return startOfYear(date);
+}
+
+function shiftTimelineDate(date: Date, scale: TimelineScale, amount: number): Date {
+  if (scale === "HOURS") return addHours(date, amount * 12);
+  if (scale === "DAYS") return addDays(date, amount);
+  if (scale === "WEEKS") return addWeeks(date, amount);
+  if (scale === "MONTHS") return addMonths(date, amount);
+  if (scale === "QUARTERS") return addQuarters(date, amount);
+  if (scale === "HALF_YEAR") return addMonths(date, amount * 6);
+  return addYears(date, amount);
+}
+
+function timelineSlotCount(scale: TimelineScale): number {
+  if (scale === "HOURS") return 28;
+  if (scale === "DAYS") return 42;
+  if (scale === "WEEKS") return 24;
+  if (scale === "MONTHS") return 18;
+  if (scale === "QUARTERS") return 12;
+  if (scale === "HALF_YEAR") return 10;
+  return 8;
+}
+
+function timelineSlotWidth(scale: TimelineScale): number {
+  if (scale === "HOURS") return 56;
+  if (scale === "DAYS") return 52;
+  if (scale === "WEEKS") return 64;
+  if (scale === "MONTHS") return 100;
+  if (scale === "QUARTERS") return 126;
+  if (scale === "HALF_YEAR") return 146;
+  return 170;
+}
+
+function timelineNavStep(scale: TimelineScale): number {
+  if (scale === "HOURS") return 8;
+  if (scale === "DAYS") return 7;
+  if (scale === "WEEKS") return 4;
+  if (scale === "MONTHS") return 2;
+  return 1;
+}
+
+function diffTimelineUnits(later: Date, earlier: Date, scale: TimelineScale): number {
+  if (scale === "HOURS") return differenceInHours(later, earlier) / 12;
+  if (scale === "DAYS") return differenceInCalendarDays(later, earlier);
+  if (scale === "WEEKS") return differenceInCalendarWeeks(later, earlier);
+  if (scale === "MONTHS") return differenceInCalendarMonths(later, earlier);
+  if (scale === "QUARTERS") return differenceInCalendarQuarters(later, earlier);
+  if (scale === "HALF_YEAR") return differenceInCalendarMonths(later, earlier) / 6;
+  return differenceInCalendarYears(later, earlier);
+}
+
+function formatTimelineSlotLabel(date: Date, scale: TimelineScale): string {
+  if (scale === "HOURS") return format(date, "MMM d ha");
+  if (scale === "DAYS") return format(date, "MMM d");
+  if (scale === "WEEKS") return `W${format(date, "II")} ${format(date, "MMM d")}`;
+  if (scale === "MONTHS") return format(date, "MMM yyyy");
+  if (scale === "QUARTERS") return `Q${Math.floor(date.getMonth() / 3) + 1} ${format(date, "yyyy")}`;
+  if (scale === "HALF_YEAR") return `${date.getMonth() < 6 ? "H1" : "H2"} ${format(date, "yyyy")}`;
+  return format(date, "yyyy");
+}
+
+function timelineBarClass(task: ProjectTaskRecord): string {
+  if (task.status.category === "DONE") return "from-emerald-500 to-emerald-400";
+  if (task.status.category === "BLOCKED") return "from-rose-500 to-rose-400";
+  if (task.status.category === "IN_PROGRESS") return "from-amber-500 to-orange-400";
+  return "from-sky-500 to-cyan-500";
+}
 
 function statusClass(category: string) {
   if (category === "DONE") return "bg-emerald-100 text-emerald-700";
@@ -267,6 +395,8 @@ export function ProjectWorkspace({
   const [savingTaskIds, setSavingTaskIds] = useState<Set<string>>(new Set());
   const [activeDragTaskId, setActiveDragTaskId] = useState<string | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(() => startOfMonth(new Date()));
+  const [timelineScale, setTimelineScale] = useState<TimelineScale>("WEEKS");
+  const [timelineCursor, setTimelineCursor] = useState<Date>(() => new Date());
   const [dependencies, setDependencies] = useState<ProjectDependencyRecord[]>(initialDependencies);
   const [messages, setMessages] = useState<ProjectMessageRecord[]>(initialMessages);
   const [depPredecessorTaskId, setDepPredecessorTaskId] = useState("");
@@ -350,8 +480,8 @@ export function ProjectWorkspace({
     }));
   }, [statuses, tasks]);
 
-  const timelineItems = useMemo(() => {
-    const transformed = visibleTasks
+  const timelineTasks = useMemo(() => {
+    return visibleTasks
       .map((task) => {
         const start = task.startDate ? parseISO(task.startDate) : parseISO(task.createdAt);
         const dueFallback = addDays(start, 3);
@@ -362,37 +492,63 @@ export function ProjectWorkspace({
           start,
           end,
           dependency: dependencyBySuccessor.get(task.id) ?? null,
-        };
+        } satisfies TimelineTaskItem;
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    if (transformed.length === 0) {
-      const now = new Date();
-      return {
-        items: transformed,
-        minDate: startOfMonth(now),
-        maxDate: endOfMonth(now),
-      };
-    }
-
-    let minDate = transformed[0].start;
-    let maxDate = transformed[0].end;
-
-    for (const item of transformed) {
-      if (item.start < minDate) minDate = item.start;
-      if (item.end > maxDate) maxDate = item.end;
-    }
-
-    return {
-      items: transformed,
-      minDate,
-      maxDate,
-    };
   }, [visibleTasks, dependencyBySuccessor]);
 
-  const timelineTotalDays = useMemo(() => {
-    return Math.max(1, differenceInCalendarDays(timelineItems.maxDate, timelineItems.minDate) + 1);
-  }, [timelineItems.maxDate, timelineItems.minDate]);
+  const timelineStart = useMemo(() => {
+    return alignTimelineDate(timelineCursor, timelineScale);
+  }, [timelineCursor, timelineScale]);
+
+  const timelineSlots = useMemo(() => {
+    const count = timelineSlotCount(timelineScale);
+
+    return Array.from({ length: count }, (_, index) => {
+      const slotStart = shiftTimelineDate(timelineStart, timelineScale, index);
+      return {
+        index,
+        start: slotStart,
+        label: formatTimelineSlotLabel(slotStart, timelineScale),
+      };
+    });
+  }, [timelineScale, timelineStart]);
+
+  const timelineSlotCountValue = useMemo(() => timelineSlotCount(timelineScale), [timelineScale]);
+  const timelineSlotWidthValue = useMemo(() => timelineSlotWidth(timelineScale), [timelineScale]);
+
+  const timelineRows = useMemo(() => {
+    const sectionRows: TimelineRow[] = sections.map((section) => ({
+      id: section.id,
+      name: section.name,
+      tasks: timelineTasks.filter((timelineTask) => timelineTask.task.sectionId === section.id),
+    }));
+
+    const noSectionTasks = timelineTasks.filter((timelineTask) => !timelineTask.task.sectionId);
+    const includeNoSection = noSectionTasks.length > 0 || sectionRows.length === 0;
+
+    if (includeNoSection) {
+      sectionRows.push({
+        id: "no-section",
+        name: "No section",
+        tasks: noSectionTasks,
+      });
+    }
+
+    return sectionRows;
+  }, [sections, timelineTasks]);
+
+  const timelineGridWidth = useMemo(() => {
+    return timelineSlotCountValue * timelineSlotWidthValue;
+  }, [timelineSlotCountValue, timelineSlotWidthValue]);
+
+  const timelineNoDateCount = useMemo(() => {
+    return tasks.filter((task) => !task.startDate && !task.dueDate).length;
+  }, [tasks]);
+
+  const timelineTodayOffset = useMemo(() => {
+    return diffTimelineUnits(new Date(), timelineStart, timelineScale);
+  }, [timelineStart, timelineScale]);
 
   const doneCount = tasks.filter((task) => task.status.category === "DONE").length;
   const inProgressCount = tasks.filter((task) => task.status.category === "IN_PROGRESS").length;
@@ -1214,49 +1370,180 @@ export function ProjectWorkspace({
             ) : null}
 
             {activeView === "TIMELINE" ? (
-              <div className="overflow-x-auto">
-                <div className="min-w-[900px] space-y-3">
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    Timeline span: {format(timelineItems.minDate, "MMM d, yyyy")} to {format(timelineItems.maxDate, "MMM d, yyyy")}
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTimelineCursor((previous) =>
+                          shiftTimelineDate(previous, timelineScale, -timelineNavStep(timelineScale)),
+                        )
+                      }
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTimelineCursor(new Date())}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTimelineCursor((previous) =>
+                          shiftTimelineDate(previous, timelineScale, timelineNavStep(timelineScale)),
+                        )
+                      }
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 hover:bg-slate-100"
+                    >
+                      ›
+                    </button>
+                    <p className="text-xs text-slate-500">
+                      {timelineSlots[0] && timelineSlots[timelineSlots.length - 1]
+                        ? `${format(timelineSlots[0].start, "MMM d, yyyy")} - ${format(
+                            timelineSlots[timelineSlots.length - 1].start,
+                            "MMM d, yyyy",
+                          )}`
+                        : "Timeline"}
+                    </p>
                   </div>
 
-                  {timelineItems.items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500">
-                      No tasks to plot on timeline yet.
-                    </div>
-                  ) : (
-                    timelineItems.items.map(({ task, start, end, dependency }) => {
-                      const offset =
-                        (differenceInCalendarDays(start, timelineItems.minDate) / timelineTotalDays) * 100;
-                      const width =
-                        (Math.max(1, differenceInCalendarDays(end, start) + 1) / timelineTotalDays) * 100;
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="rounded-md bg-white px-2 py-1 text-xs text-slate-600">
+                      No date ({timelineNoDateCount})
+                    </span>
+                    <label htmlFor="timeline-scale" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Scale
+                    </label>
+                    <select
+                      id="timeline-scale"
+                      value={timelineScale}
+                      onChange={(event) => setTimelineScale(event.target.value as TimelineScale)}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm"
+                    >
+                      {timelineScaleOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-                      return (
-                        <div key={task.id} className="grid grid-cols-[260px_1fr] gap-3">
-                          <div className="rounded-lg border border-slate-200 px-3 py-2">
-                            <p className="text-sm font-semibold text-slate-900">{task.title}</p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {format(start, "MMM d")} - {format(end, "MMM d")}
-                            </p>
-                            {dependency ? (
-                              <p className="mt-1 text-xs text-amber-700">
-                                Waiting on: {dependency.predecessor.title}
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="relative h-12 rounded-lg border border-slate-200 bg-slate-50">
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <div
+                    className="min-w-[980px]"
+                    style={{ width: `${260 + timelineGridWidth}px` }}
+                  >
+                    <div
+                      className="grid border-b border-slate-200 bg-white"
+                      style={{ gridTemplateColumns: `260px ${timelineGridWidth}px` }}
+                    >
+                      <div className="border-r border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Sections
+                      </div>
+                      <div className="overflow-hidden">
+                        <div className="flex">
+                          {timelineSlots.map((slot) => (
                             <div
-                              className="absolute top-1/2 h-7 -translate-y-1/2 rounded-md bg-gradient-to-r from-sky-500 to-cyan-500"
-                              style={{
-                                left: `${offset}%`,
-                                width: `${Math.max(width, 2)}%`,
-                              }}
-                            />
-                          </div>
+                              key={`${slot.label}-${slot.index}`}
+                              className="shrink-0 border-r border-slate-100 px-2 py-2 text-[11px] font-medium text-slate-600"
+                              style={{ width: `${timelineSlotWidthValue}px` }}
+                            >
+                              {slot.label}
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })
-                  )}
+                      </div>
+                    </div>
+
+                    {timelineRows.length === 0 ? (
+                      <div className="px-4 py-10 text-center text-sm text-slate-500">
+                        No sections/tasks to show yet.
+                      </div>
+                    ) : (
+                      timelineRows.map((row) => {
+                        const rowHeight = Math.max(54, row.tasks.length * 24 + 14);
+
+                        return (
+                          <div
+                            key={row.id}
+                            className="grid border-b border-slate-200 last:border-none"
+                            style={{ gridTemplateColumns: `260px ${timelineGridWidth}px` }}
+                          >
+                            <div className="border-r border-slate-200 bg-slate-50 px-3 py-3">
+                              <p className="text-sm font-semibold text-slate-800">{row.name}</p>
+                              <p className="text-xs text-slate-500">{row.tasks.length} tasks</p>
+                            </div>
+
+                            <div className="relative bg-white" style={{ height: `${rowHeight}px` }}>
+                              <div className="pointer-events-none absolute inset-0 flex">
+                                {timelineSlots.map((slot) => (
+                                  <div
+                                    key={`grid-${row.id}-${slot.index}`}
+                                    className="h-full shrink-0 border-r border-slate-100"
+                                    style={{ width: `${timelineSlotWidthValue}px` }}
+                                  />
+                                ))}
+                              </div>
+
+                              {timelineTodayOffset >= 0 && timelineTodayOffset <= timelineSlotCountValue ? (
+                                <div
+                                  className="absolute top-0 bottom-0 w-[2px] bg-sky-400/80"
+                                  style={{ left: `${timelineTodayOffset * timelineSlotWidthValue}px` }}
+                                />
+                              ) : null}
+
+                              {row.tasks.map((timelineTask, index) => {
+                                const startUnits = diffTimelineUnits(
+                                  timelineTask.start,
+                                  timelineStart,
+                                  timelineScale,
+                                );
+                                const endUnits =
+                                  diffTimelineUnits(timelineTask.end, timelineStart, timelineScale) + 1;
+
+                                const leftUnits = Math.max(0, startUnits);
+                                const rightUnits = Math.min(timelineSlotCountValue, endUnits);
+
+                                if (rightUnits <= 0 || leftUnits >= timelineSlotCountValue) {
+                                  return null;
+                                }
+
+                                const barWidth = Math.max(
+                                  26,
+                                  (Math.max(0.6, rightUnits - leftUnits) * timelineSlotWidthValue) - 6,
+                                );
+
+                                return (
+                                  <div
+                                    key={timelineTask.task.id}
+                                    className={`absolute rounded-md bg-gradient-to-r px-2 py-1 text-[11px] font-semibold text-white shadow ${timelineBarClass(
+                                      timelineTask.task,
+                                    )}`}
+                                    style={{
+                                      left: `${leftUnits * timelineSlotWidthValue + 3}px`,
+                                      top: `${7 + index * 24}px`,
+                                      width: `${barWidth}px`,
+                                    }}
+                                    title={`${timelineTask.task.title} (${formatDate(
+                                      timelineTask.task.startDate,
+                                    )} - ${formatDate(timelineTask.task.dueDate)})`}
+                                  >
+                                    <span className="block truncate">{timelineTask.task.title}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             ) : null}
