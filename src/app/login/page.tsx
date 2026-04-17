@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { signIn } from "@/lib/auth";
 
 type LoginPageProps = {
-  searchParams?: Promise<{ error?: string; registered?: string }> | { error?: string; registered?: string };
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const params = (await searchParams) ?? {};
+  const rawParams = (await searchParams) ?? {};
+  const error = Array.isArray(rawParams.error) ? rawParams.error[0] : rawParams.error;
+  const registered = Array.isArray(rawParams.registered) ? rawParams.registered[0] : rawParams.registered;
 
   async function loginAction(formData: FormData) {
     "use server";
@@ -38,13 +40,13 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         Use your workspace email and password. If this is a fresh install, create an account first.
       </p>
 
-      {params.error ? (
+      {error ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
           Sign-in failed. Check credentials and try again.
         </p>
       ) : null}
 
-      {params.registered ? (
+      {registered ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           Account created successfully. Please sign in.
         </p>
