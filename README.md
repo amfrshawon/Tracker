@@ -117,6 +117,7 @@ GitHub Actions workflow at `.github/workflows/ci.yml` runs:
 ## 7. Project Docs
 
 - Architecture: `docs/ARCHITECTURE.md`
+- Deployment: `docs/DEPLOYMENT.md`
 - GitHub setup: `docs/GITHUB_SETUP.md`
 - Contributing: `CONTRIBUTING.md`
 - Security policy: `SECURITY.md`
