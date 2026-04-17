@@ -71,16 +71,23 @@ const authConfig: NextAuthConfig = {
   secret: env.AUTH_SECRET,
   trustHost: true,
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
   pages: {
     signIn: "/login",
   },
   providers,
   callbacks: {
-    session({ session, user }) {
+    jwt({ token, user }) {
+      if (user?.id) {
+        token.sub = user.id;
+      }
+
+      return token;
+    },
+    session({ session, token }) {
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id = token.sub ?? session.user.id;
       }
 
       return session;
