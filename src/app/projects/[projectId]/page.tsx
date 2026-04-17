@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ProjectWorkspace } from "@/components/project/project-workspace";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { PROJECT_UPDATES_TASK_TITLE } from "@/lib/project-updates";
 import { taskOutputSelect } from "@/lib/task-select";
 
 function toIso(value: Date | null): string | null {
@@ -99,7 +100,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  const [workspaceProjects, tasks] = await Promise.all([
+  const [workspaceProjects, tasks, dependencies, updatesTask] = await Promise.all([
     prisma.project.findMany({
       where: {
         workspaceId: project.workspaceId,
@@ -123,7 +124,81 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       select: taskOutputSelect,
       orderBy: [{ sectionId: "asc" }, { position: "asc" }, { createdAt: "asc" }],
     }),
+    prisma.taskDependency.findMany({
+      where: {
+        predecessor: {
+          projectId: project.id,
+          deletedAt: null,
+          isArchived: false,
+        },
+        successor: {
+          projectId: project.id,
+          deletedAt: null,
+          isArchived: false,
+        },
+      },
+      select: {
+        id: true,
+        predecessorTaskId: true,
+        successorTaskId: true,
+        type: true,
+        lagMinutes: true,
+        createdAt: true,
+        predecessor: {
+          select: {
+            id: true,
+            title: true,
+            statusId: true,
+          },
+        },
+        successor: {
+          select: {
+            id: true,
+            title: true,
+            statusId: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    }),
+    prisma.task.findFirst({
+      where: {
+        projectId: project.id,
+        title: PROJECT_UPDATES_TASK_TITLE,
+      },
+      select: {
+        id: true,
+      },
+    }),
   ]);
+
+  const messages = updatesTask
+    ? await prisma.taskComment.findMany({
+        where: {
+          taskId: updatesTask.id,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          updatedAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      })
+    : [];
 
   const serializedTasks = tasks.map((task) => ({
     ...task,
@@ -155,6 +230,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       }}
       workspaceProjects={workspaceProjects}
       initialTasks={serializedTasks}
+      initialDependencies={dependencies.map((dependency) => ({
+        ...dependency,
+        createdAt: dependency.createdAt.toISOString(),
+      }))}
+      initialMessages={messages.map((message) => ({
+        ...message,
+        createdAt: message.createdAt.toISOString(),
+        updatedAt: message.updatedAt.toISOString(),
+      }))}
     />
   );
 }

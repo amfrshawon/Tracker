@@ -69,6 +69,38 @@ export type ProjectTaskRecord = {
   };
 };
 
+export type ProjectDependencyRecord = {
+  id: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  type: "FINISH_TO_START" | "START_TO_START" | "FINISH_TO_FINISH" | "START_TO_FINISH";
+  lagMinutes: number;
+  createdAt: string;
+  predecessor: {
+    id: string;
+    title: string;
+    statusId: string;
+  };
+  successor: {
+    id: string;
+    title: string;
+    statusId: string;
+  };
+};
+
+export type ProjectMessageRecord = {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  author: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+  };
+};
+
 export type ProjectWorkspaceData = {
   id: string;
   name: string;

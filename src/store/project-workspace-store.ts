@@ -7,7 +7,17 @@ import type {
   ProjectTaskRecord,
 } from "@/types/project-workspace";
 
-export type ProjectViewTab = "LIST" | "BOARD" | "CALENDAR";
+export type ProjectViewTab =
+  | "OVERVIEW"
+  | "LIST"
+  | "BOARD"
+  | "TIMELINE"
+  | "DASHBOARD"
+  | "CALENDAR"
+  | "WORKFLOW"
+  | "DEPENDENCIES"
+  | "MESSAGES"
+  | "FILES";
 
 type HydratePayload = {
   projectId: string;
@@ -50,7 +60,7 @@ function sortTasks(tasks: ProjectTaskRecord[]): ProjectTaskRecord[] {
 
 export const useProjectWorkspaceStore = create<ProjectWorkspaceStore>((set) => ({
   projectId: null,
-  activeView: "LIST",
+  activeView: "OVERVIEW",
   statuses: [],
   sections: [],
   members: [],

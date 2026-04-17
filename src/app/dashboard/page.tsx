@@ -61,7 +61,7 @@ export default async function DashboardPage() {
           orderBy: {
             updatedAt: "desc",
           },
-          take: 6,
+          take: 100,
         },
       },
       orderBy: {
