@@ -38,6 +38,7 @@ import {
   useProjectWorkspaceStore,
   type ProjectViewTab,
 } from "@/store/project-workspace-store";
+import { UserAdminPanel } from "@/components/user/user-admin-panel";
 import type {
   ProjectDependencyRecord,
   ProjectMessageRecord,
@@ -52,6 +53,13 @@ type ProjectWorkspaceProps = {
   initialTasks: ProjectTaskRecord[];
   initialDependencies: ProjectDependencyRecord[];
   initialMessages: ProjectMessageRecord[];
+  viewer: {
+    role: "ADMIN" | "MEMBER" | "VIEWER";
+    isAdmin: boolean;
+    userName: string | null;
+    userEmail: string;
+    userImage: string | null;
+  };
 };
 
 type TaskPatchPayload = {
@@ -243,6 +251,7 @@ export function ProjectWorkspace({
   initialTasks,
   initialDependencies,
   initialMessages,
+  viewer,
 }: ProjectWorkspaceProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -714,7 +723,7 @@ export function ProjectWorkspace({
   return (
     <main className="min-h-screen bg-[radial-gradient(1300px_700px_at_10%_-10%,#fef3c7,transparent),radial-gradient(1200px_700px_at_100%_0%,#dbeafe,transparent)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] gap-4 px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
-        <aside className="hidden w-72 shrink-0 rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm backdrop-blur lg:block">
+        <aside className="hidden w-72 shrink-0 flex-col rounded-2xl border border-slate-200 bg-white/85 p-4 shadow-sm backdrop-blur lg:flex">
           <div className="mb-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">RabbyTrack</p>
             <p className="mt-1 text-sm text-slate-600">{project.workspace.name}</p>
@@ -764,9 +773,32 @@ export function ProjectWorkspace({
               <p>{dependencies.length} dependencies</p>
             </div>
           </div>
+
+          <div className="mt-auto pt-4">
+            <UserAdminPanel
+              userName={viewer.userName}
+              userEmail={viewer.userEmail}
+              userImage={viewer.userImage}
+              workspaceName={project.workspace.name}
+              isAdmin={viewer.isAdmin}
+              compact
+              placement="top-start"
+            />
+          </div>
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex justify-end lg:hidden">
+            <UserAdminPanel
+              userName={viewer.userName}
+              userEmail={viewer.userEmail}
+              userImage={viewer.userImage}
+              workspaceName={project.workspace.name}
+              isAdmin={viewer.isAdmin}
+              placement="bottom-end"
+            />
+          </div>
+
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

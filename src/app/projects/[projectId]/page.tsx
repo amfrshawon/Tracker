@@ -200,6 +200,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       })
     : [];
 
+  const viewerMembership =
+    project.members.find((member) => member.workspaceMember.user.id === session.user.id) ?? null;
+  const viewerRole = viewerMembership?.role ?? "VIEWER";
+  const viewerIsAdmin = viewerRole === "ADMIN";
+
   const serializedTasks = tasks.map((task) => ({
     ...task,
     startDate: toIso(task.startDate),
@@ -239,6 +244,13 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         createdAt: message.createdAt.toISOString(),
         updatedAt: message.updatedAt.toISOString(),
       }))}
+      viewer={{
+        role: viewerRole,
+        isAdmin: viewerIsAdmin,
+        userName: session.user.name ?? null,
+        userEmail: session.user.email ?? "Unknown user",
+        userImage: session.user.image ?? null,
+      }}
     />
   );
 }

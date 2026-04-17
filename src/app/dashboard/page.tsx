@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { auth, signOut } from "@/lib/auth";
+import { UserAdminPanel } from "@/components/user/user-admin-panel";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export default async function DashboardPage() {
@@ -101,10 +102,7 @@ export default async function DashboardPage() {
     return project.dueDate.getTime() < now;
   }).length;
 
-  async function logoutAction() {
-    "use server";
-    await signOut({ redirectTo: "/login" });
-  }
+  const hasAdminWorkspace = workspaces.some((workspace) => workspace.members[0]?.role === "ADMIN");
 
   return (
     <main className="min-h-screen bg-[radial-gradient(1000px_500px_at_15%_-10%,#fef3c7,transparent),radial-gradient(900px_500px_at_100%_0%,#dbeafe,transparent)]">
@@ -114,14 +112,14 @@ export default async function DashboardPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">RabbyTrack</p>
             <p className="mt-1 text-sm text-slate-600">Enterprise project tracking starter</p>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-            >
-              Sign out
-            </button>
-          </form>
+          <UserAdminPanel
+            userName={session.user.name ?? null}
+            userEmail={session.user.email ?? "Unknown user"}
+            userImage={session.user.image ?? null}
+            workspaceName={workspaces[0]?.name ?? null}
+            isAdmin={hasAdminWorkspace}
+            placement="bottom-end"
+          />
         </div>
 
         <DashboardShell
