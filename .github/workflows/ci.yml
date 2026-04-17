@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop", "codex/**"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tracer_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tracer_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tracer_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/tracer_ci
+      AUTH_SECRET: test-secret-for-ci-setup-only
+      AUTH_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Sanitize
+        run: npm run sanitize
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck

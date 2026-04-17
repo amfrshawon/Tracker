@@ -1,0 +1,863 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum WorkspaceRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ProjectVisibility {
+  WORKSPACE
+  PRIVATE
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskType {
+  TASK
+  BUG
+  STORY
+  EPIC
+  MILESTONE
+}
+
+enum TaskStatusCategory {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+  CANCELED
+}
+
+enum ProjectViewType {
+  LIST
+  BOARD
+  CALENDAR
+  TIMELINE
+  GANTT
+  DASHBOARD
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  DROPDOWN
+  CHECKBOX
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+enum AutomationTriggerType {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_STATUS_CHANGED
+  TASK_MOVED_TO_DONE
+  TASK_DUE_DATE_REACHED
+  CUSTOM_FIELD_CHANGED
+  TIME_ENTRY_STOPPED
+}
+
+enum AutomationActionType {
+  ASSIGN_USER
+  UNASSIGN_USER
+  SET_STATUS
+  SET_PRIORITY
+  SET_DUE_DATE
+  ADD_COMMENT
+  CREATE_SUBTASK
+  START_TIMER
+  STOP_TIMER
+  SEND_WEBHOOK
+}
+
+enum AutomationRunStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum DashboardScope {
+  WORKSPACE
+  PROJECT
+  PORTFOLIO
+}
+
+enum TaskActivityType {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  ASSIGNED
+  COMMENTED
+  DEPENDENCY_ADDED
+  DEPENDENCY_REMOVED
+  CUSTOM_FIELD_CHANGED
+  TIME_LOGGED
+}
+
+model User {
+  id                        String                 @id @default(cuid())
+  name                      String?
+  email                     String?                @unique
+  emailVerified             DateTime?
+  image                     String?
+  passwordHash              String?
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
+
+  accounts                  Account[]
+  sessions                  Session[]
+
+  workspacesOwned           Workspace[]            @relation("WorkspaceOwner")
+  workspaceMemberships      WorkspaceMember[]
+  invitesSent               WorkspaceInvite[]
+
+  teamsCreated              Team[]                 @relation("TeamCreator")
+  projectsOwned             Project[]              @relation("ProjectOwner")
+
+  tasksCreated              Task[]                 @relation("TaskCreator")
+  tasksReported             Task[]                 @relation("TaskReporter")
+  tasksAssigned             Task[]                 @relation("TaskAssignee")
+  taskFollowers             TaskFollower[]
+  taskComments              TaskComment[]
+  taskActivities            TaskActivity[]
+  taskDependenciesCreated   TaskDependency[]       @relation("TaskDependencyCreator")
+
+  customFieldsCreated       CustomField[]          @relation("CustomFieldCreator")
+  customFieldValuesUpdated  TaskCustomFieldValue[] @relation("CustomFieldValueUpdater")
+
+  automationRulesCreated    AutomationRule[]       @relation("AutomationRuleCreator")
+
+  portfoliosOwned           Portfolio[]            @relation("PortfolioOwner")
+  dashboardsOwned           Dashboard[]            @relation("DashboardOwner")
+
+  savedViews                SavedView[]
+  timeEntries               TimeEntry[]
+  activeTimer               ActiveTimer?
+}
+
+model Account {
+  id                 String @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user               User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Workspace {
+  id               String                 @id @default(cuid())
+  ownerId          String
+  slug             String                 @unique
+  name             String
+  description      String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  archivedAt       DateTime?
+
+  owner            User                   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members          WorkspaceMember[]
+  invites          WorkspaceInvite[]
+  teams            Team[]
+  projectCategories ProjectCategory[]
+  projects         Project[]
+  tasks            Task[]
+  customFields     CustomField[]
+  tags             Tag[]
+  portfolios       Portfolio[]
+  dashboards       Dashboard[]
+  automations      AutomationRule[]
+  timeEntries      TimeEntry[]
+  activeTimers     ActiveTimer[]
+  metricSnapshots  ProjectMetricSnapshot[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id                 String         @id @default(cuid())
+  workspaceId        String
+  userId             String
+  role               WorkspaceRole  @default(MEMBER)
+  joinedAt           DateTime       @default(now())
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  workspace          Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectMemberships ProjectMember[]
+  teamMemberships    TeamMember[]
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id           String        @id @default(cuid())
+  workspaceId  String
+  email        String
+  role         WorkspaceRole @default(MEMBER)
+  token        String        @unique
+  invitedById  String
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy    User          @relation(fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+}
+
+model Team {
+  id          String       @id @default(cuid())
+  workspaceId String
+  createdById String
+  name        String
+  slug        String?
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  archivedAt  DateTime?
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("TeamCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  members     TeamMember[]
+  projects    ProjectTeam[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model TeamMember {
+  id                 String         @id @default(cuid())
+  teamId             String
+  workspaceMemberId  String
+  role               WorkspaceRole  @default(MEMBER)
+  createdAt          DateTime       @default(now())
+
+  team               Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspaceMember    WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, workspaceMemberId])
+  @@index([workspaceMemberId])
+}
+
+model ProjectCategory {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String?
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects    Project[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, position])
+}
+
+model Project {
+  id             String            @id @default(cuid())
+  workspaceId    String
+  ownerId        String
+  categoryId     String?
+  name           String
+  key            String?
+  description    String?
+  color          String?
+  icon           String?
+  visibility     ProjectVisibility @default(WORKSPACE)
+  status         ProjectStatus     @default(ACTIVE)
+  startDate      DateTime?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  archivedAt     DateTime?
+
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner          User              @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  category       ProjectCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  members        ProjectMember[]
+  teams          ProjectTeam[]
+  sections       ProjectSection[]
+  statuses       TaskStatus[]
+  tasks          Task[]
+  customFields   CustomField[]
+  savedViews     SavedView[]
+  automations    AutomationRule[]
+  portfolios     PortfolioProject[]
+  dashboards     Dashboard[]
+  timeEntries    TimeEntry[]
+  activeTimers   ActiveTimer[]
+  metricSnapshots ProjectMetricSnapshot[]
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, status])
+  @@index([categoryId])
+}
+
+model ProjectMember {
+  id                String         @id @default(cuid())
+  projectId         String
+  workspaceMemberId String
+  role              WorkspaceRole  @default(MEMBER)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspaceMember   WorkspaceMember @relation(fields: [workspaceMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, workspaceMemberId])
+  @@index([workspaceMemberId])
+}
+
+model ProjectTeam {
+  projectId  String
+  teamId     String
+  role       WorkspaceRole @default(MEMBER)
+  createdAt  DateTime      @default(now())
+
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team       Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, teamId])
+  @@index([teamId])
+}
+
+model TaskStatus {
+  id          String             @id @default(cuid())
+  projectId   String
+  name        String
+  color       String?
+  position    Int
+  category    TaskStatusCategory @default(TODO)
+  isDefault   Boolean            @default(false)
+  isTerminal  Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  project     Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@unique([projectId, name])
+  @@index([projectId, position])
+}
+
+model ProjectSection {
+  id          String    @id @default(cuid())
+  projectId   String
+  name        String
+  position    Int       @default(0)
+  collapsed   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+
+  @@unique([projectId, name])
+  @@index([projectId, position])
+}
+
+model SavedView {
+  id          String        @id @default(cuid())
+  projectId   String
+  createdById String
+  name        String
+  type        ProjectViewType
+  filters     Json?
+  groupBy     String?
+  sort        Json?
+  layout      Json?
+  isDefault   Boolean       @default(false)
+  isShared    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User          @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name])
+  @@index([projectId, type])
+}
+
+model Task {
+  id                         String             @id @default(cuid())
+  workspaceId                String
+  projectId                  String
+  parentTaskId               String?
+  sectionId                  String?
+  statusId                   String
+
+  creatorId                  String
+  reporterId                 String?
+  assigneeId                 String?
+
+  title                      String
+  description                String?
+  priority                   TaskPriority       @default(NONE)
+  type                       TaskType           @default(TASK)
+
+  startDate                  DateTime?
+  dueDate                    DateTime?
+  completedAt                DateTime?
+
+  estimateMinutes            Int?
+  position                   Int                @default(0)
+  rank                       String?            @db.VarChar(64)
+
+  isMilestone                Boolean            @default(false)
+  isArchived                 Boolean            @default(false)
+
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  deletedAt                  DateTime?
+
+  workspace                  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project                    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask                 Task?              @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks                   Task[]             @relation("Subtasks")
+
+  section                    ProjectSection?    @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  status                     TaskStatus         @relation(fields: [statusId], references: [id], onDelete: Restrict)
+
+  creator                    User               @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Restrict)
+  reporter                   User?              @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  assignee                   User?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  followers                  TaskFollower[]
+  tags                       TaskTag[]
+  comments                   TaskComment[]
+  activities                 TaskActivity[]
+  customFieldValues          TaskCustomFieldValue[]
+  dependenciesAsPredecessor  TaskDependency[]   @relation("DependencyPredecessor")
+  dependenciesAsSuccessor    TaskDependency[]   @relation("DependencySuccessor")
+  timeEntries                TimeEntry[]
+  activeTimers               ActiveTimer[]
+  automationRuns             AutomationRun[]
+
+  @@index([projectId, statusId, position])
+  @@index([projectId, sectionId, position])
+  @@index([assigneeId, dueDate])
+  @@index([workspaceId, createdAt])
+}
+
+model TaskFollower {
+  taskId      String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@index([userId])
+}
+
+model Tag {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String?
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks       TaskTag[]
+
+  @@unique([workspaceId, name])
+}
+
+model TaskTag {
+  taskId      String
+  tagId       String
+
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@index([tagId])
+}
+
+model TaskComment {
+  id          String    @id @default(cuid())
+  taskId      String
+  authorId    String
+  body        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  editedAt    DateTime?
+  deletedAt   DateTime?
+
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+}
+
+model TaskActivity {
+  id          String           @id @default(cuid())
+  taskId      String
+  actorId     String?
+  type        TaskActivityType
+  payload     Json?
+  createdAt   DateTime         @default(now())
+
+  task        Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor       User?            @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+}
+
+model TaskDependency {
+  id                 String         @id @default(cuid())
+  predecessorTaskId  String
+  successorTaskId    String
+  type               DependencyType @default(FINISH_TO_START)
+  lagMinutes         Int            @default(0)
+  createdById        String?
+  createdAt          DateTime       @default(now())
+
+  predecessor        Task           @relation("DependencyPredecessor", fields: [predecessorTaskId], references: [id], onDelete: Cascade)
+  successor          Task           @relation("DependencySuccessor", fields: [successorTaskId], references: [id], onDelete: Cascade)
+  createdBy          User?          @relation("TaskDependencyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([predecessorTaskId, successorTaskId, type])
+  @@index([successorTaskId])
+  @@index([predecessorTaskId])
+}
+
+model CustomField {
+  id          String          @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  createdById String
+  name        String
+  description String?
+  type        CustomFieldType
+  required    Boolean         @default(false)
+  isGlobal    Boolean         @default(false)
+  position    Int             @default(0)
+  settings    Json?
+  archivedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User            @relation("CustomFieldCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  options     CustomFieldOption[]
+  values      TaskCustomFieldValue[]
+
+  @@index([workspaceId, position])
+  @@index([projectId, position])
+}
+
+model CustomFieldOption {
+  id            String               @id @default(cuid())
+  customFieldId String
+  label         String
+  value         String?
+  color         String?
+  position      Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  customField   CustomField          @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  values        TaskCustomFieldValue[] @relation("SelectedOption")
+
+  @@unique([customFieldId, label])
+  @@index([customFieldId, position])
+}
+
+model TaskCustomFieldValue {
+  id           String            @id @default(cuid())
+  taskId       String
+  customFieldId String
+
+  textValue    String?
+  numberValue  Decimal?          @db.Decimal(18, 4)
+  dateValue    DateTime?
+  booleanValue Boolean?
+  optionId     String?
+  jsonValue    Json?
+
+  updatedById  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  task         Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  customField  CustomField       @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  option       CustomFieldOption? @relation("SelectedOption", fields: [optionId], references: [id], onDelete: SetNull)
+  updatedBy    User?             @relation("CustomFieldValueUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, customFieldId])
+  @@index([customFieldId])
+  @@index([optionId])
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  projectId       String
+  taskId          String
+  userId          String
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int?
+  note            String?
+  billable        Boolean   @default(false)
+  source          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, startedAt])
+  @@index([userId, startedAt])
+  @@index([projectId, startedAt])
+}
+
+model ActiveTimer {
+  userId      String   @id
+  workspaceId String
+  projectId   String
+  taskId      String
+  startedAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model AutomationRule {
+  id            String                 @id @default(cuid())
+  workspaceId   String
+  projectId     String?
+  createdById   String
+  name          String
+  description   String?
+  enabled       Boolean                @default(true)
+  triggerType   AutomationTriggerType
+  triggerConfig Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  workspace     Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project       Project?               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy     User                   @relation("AutomationRuleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  conditions    AutomationCondition[]
+  actions       AutomationAction[]
+  runs          AutomationRun[]
+
+  @@index([workspaceId, enabled])
+  @@index([projectId, enabled])
+}
+
+model AutomationCondition {
+  id          String         @id @default(cuid())
+  ruleId      String
+  position    Int            @default(0)
+  field       String
+  operator    String
+  value       Json?
+  logicalGroup String?
+  createdAt   DateTime       @default(now())
+
+  rule        AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, position])
+}
+
+model AutomationAction {
+  id          String             @id @default(cuid())
+  ruleId      String
+  position    Int                @default(0)
+  type        AutomationActionType
+  config      Json
+  createdAt   DateTime           @default(now())
+
+  rule        AutomationRule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId, position])
+}
+
+model AutomationRun {
+  id          String              @id @default(cuid())
+  ruleId      String
+  taskId      String?
+  status      AutomationRunStatus
+  errorMessage String?
+  durationMs  Int?
+  executedAt  DateTime            @default(now())
+
+  rule        AutomationRule      @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([ruleId, executedAt])
+  @@index([taskId, executedAt])
+}
+
+model Portfolio {
+  id          String        @id @default(cuid())
+  workspaceId String
+  ownerId     String
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       User          @relation("PortfolioOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  projects    PortfolioProject[]
+  dashboards  Dashboard[]
+
+  @@index([workspaceId])
+}
+
+model PortfolioProject {
+  portfolioId String
+  projectId   String
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([portfolioId, projectId])
+  @@index([projectId])
+}
+
+model Dashboard {
+  id          String         @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  portfolioId String?
+  ownerId     String?
+  name        String
+  scope       DashboardScope
+  isDefault   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  portfolio   Portfolio?     @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  owner       User?          @relation("DashboardOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  widgets     DashboardWidget[]
+
+  @@index([workspaceId, scope])
+  @@index([projectId])
+  @@index([portfolioId])
+}
+
+model DashboardWidget {
+  id               String    @id @default(cuid())
+  dashboardId      String
+  type             String
+  title            String?
+  position         Int       @default(0)
+  config           Json
+  refreshIntervalSec Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  dashboard        Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([dashboardId, position])
+}
+
+model ProjectMetricSnapshot {
+  id                 String    @id @default(cuid())
+  workspaceId        String
+  projectId          String
+  date               DateTime
+  totalTasks         Int
+  completedTasks     Int
+  inProgressTasks    Int
+  overdueTasks       Int
+  blockedTasks       Int
+  totalTrackedSeconds Int
+  totalEstimatedSeconds Int?
+  createdAt          DateTime  @default(now())
+
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date])
+  @@index([workspaceId, date])
+}
